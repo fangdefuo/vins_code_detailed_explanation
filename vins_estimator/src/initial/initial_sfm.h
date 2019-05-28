@@ -15,7 +15,7 @@ using namespace std;
 
 struct SFMFeature
 {
-    bool state;
+    bool state;//是否被三角化
     int id;
     vector<pair<int,Vector2d>> observation;
     double position[3];
@@ -34,7 +34,7 @@ struct ReprojectionError3D
 		T p[3];
 		ceres::QuaternionRotatePoint(camera_R, point, p);
 		p[0] += camera_T[0]; p[1] += camera_T[1]; p[2] += camera_T[2];
-		T xp = p[0] / p[2];
+		T xp = p[0] / p[2];//归一化
     	T yp = p[1] / p[2];
     	residuals[0] = xp - T(observed_u);
     	residuals[1] = yp - T(observed_v);

@@ -2,7 +2,7 @@
 
 int FeatureTracker::n_id = 0;
 
-bool inBorder(const cv::Point2f &pt)
+bool inBorder(const cv::Point2f &pt)//判断所提取的点不在边界上
 {
     const int BORDER_SIZE = 1;
     int img_x = cvRound(pt.x);
@@ -10,7 +10,7 @@ bool inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < COL - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < ROW - BORDER_SIZE;
 }
 
-void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)
+void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)//v是点
 {
     int j = 0;
     for (int i = 0; i < int(v.size()); i++)
@@ -19,7 +19,7 @@ void reduceVector(vector<cv::Point2f> &v, vector<uchar> status)
     v.resize(j);
 }
 
-void reduceVector(vector<int> &v, vector<uchar> status)
+void reduceVector(vector<int> &v, vector<uchar> status)//v代表整数
 {
     int j = 0;
     for (int i = 0; i < int(v.size()); i++)
@@ -86,7 +86,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 
     if (EQUALIZE)
     {
-        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
+        cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));//直方图锐化
         TicToc t_c;
         clahe->apply(_img, img);
         ROS_DEBUG("CLAHE costs: %fms", t_c.toc());
@@ -94,7 +94,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     else
         img = _img;
 
-    if (forw_img.empty())
+    if (forw_img.empty())//forw_img是当前帧，cur_img是上一帧，prev_img是上一次发布的帧
     {
         prev_img = cur_img = forw_img = img;
     }
@@ -111,7 +111,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         vector<uchar> status;
         vector<float> err;
         cv::calcOpticalFlowPyrLK(cur_img, forw_img, cur_pts, forw_pts, status, err, cv::Size(21, 21), 3);
-
+//光流跟踪算法是opencv里自带的
         for (int i = 0; i < int(forw_pts.size()); i++)
             if (status[i] && !inBorder(forw_pts[i]))
                 status[i] = 0;
@@ -127,11 +127,11 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     for (auto &n : track_cnt)
         n++;
 
-    if (PUB_THIS_FRAME)
+    if (PUB_THIS_FRAME)//判断是否需要发布该帧
     {
-        rejectWithF();
+        rejectWithF();//做随机采样一致性剔除外点
         ROS_DEBUG("set mask begins");
-        TicToc t_m;
+        TicToc t_m;//这个函数是用来计算时间的
         setMask();
         ROS_DEBUG("set mask costs %fms", t_m.toc());
 

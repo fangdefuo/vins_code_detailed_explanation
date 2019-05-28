@@ -128,7 +128,7 @@ bool ProjectionTdFactor::Evaluate(double const *const *parameters, double *resid
             Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[3]);
             jacobian_feature = reduce * ric.transpose() * Rj.transpose() * Ri * ric * pts_i_td * -1.0 / (inv_dep_i * inv_dep_i);
         }
-        if (jacobians[4])
+        if (jacobians[4])//这个文件比上一个文件多了这个雅克比，如果考虑 Cam 和 IMU 的时间戳偏移量 td,
         {
             Eigen::Map<Eigen::Vector2d> jacobian_td(jacobians[4]);
             jacobian_td = reduce * ric.transpose() * Rj.transpose() * Ri * ric * velocity_i / inv_dep_i * -1.0  +

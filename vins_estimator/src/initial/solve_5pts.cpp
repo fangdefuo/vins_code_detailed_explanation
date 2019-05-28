@@ -3,7 +3,7 @@
 
 namespace cv {
     void decomposeEssentialMat( InputArray _E, OutputArray _R1, OutputArray _R2, OutputArray _t )
-    {
+    {//根据Ｅ矩阵恢复出Ｒ
 
         Mat E = _E.getMat().reshape(1, 3);
         CV_Assert(E.cols == 3 && E.rows == 3);
@@ -53,7 +53,7 @@ namespace cv {
         double cx = cameraMatrix.at<double>(0,2);
         double cy = cameraMatrix.at<double>(1,2);
 
-        points1.col(0) = (points1.col(0) - cx) / fx;
+        points1.col(0) = (points1.col(0) - cx) / fx;//根据像素恢复出３维点
         points2.col(0) = (points2.col(0) - cx) / fx;
         points1.col(1) = (points1.col(1) - cy) / fy;
         points2.col(1) = (points2.col(1) - cy) / fy;
@@ -204,7 +204,7 @@ bool MotionEstimator::solveRelativeRT(const vector<pair<Vector3d, Vector3d>> &co
         cv::Mat E = cv::findFundamentalMat(ll, rr, cv::FM_RANSAC, 0.3 / 460, 0.99, mask);
         cv::Mat cameraMatrix = (cv::Mat_<double>(3, 3) << 1, 0, 0, 0, 1, 0, 0, 0, 1);
         cv::Mat rot, trans;
-        int inlier_cnt = cv::recoverPose(E, ll, rr, cameraMatrix, rot, trans, mask);
+        int inlier_cnt = cv::recoverPose(E, ll, rr, cameraMatrix, rot, trans, mask);//直接调用opencv的方法恢复出Ｒ和ｔ
         //cout << "inlier_cnt " << inlier_cnt << endl;
 
         Eigen::Matrix3d R;

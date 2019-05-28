@@ -150,7 +150,7 @@ void pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
     */
 }
 
-void imu_forward_callback(const nav_msgs::Odometry::ConstPtr &forward_msg)
+void imu_forward_callback(const nav_msgs::Odometry::ConstPtr &forward_msg)//共享常指针
 {
     if (VISUALIZE_IMU_FORWARD)
     {
@@ -169,8 +169,8 @@ void imu_forward_callback(const nav_msgs::Odometry::ConstPtr &forward_msg)
 
         Vector3d vio_t_cam;
         Quaterniond vio_q_cam;
-        vio_t_cam = vio_t + vio_q * tic;
-        vio_q_cam = vio_q * qic;        
+        vio_t_cam = vio_t + vio_q * tic;//平移更新
+        vio_q_cam = vio_q * qic;   //旋转更新     
 
         cameraposevisual.reset();
         cameraposevisual.add_pose(vio_t_cam, vio_q_cam);
@@ -179,18 +179,18 @@ void imu_forward_callback(const nav_msgs::Odometry::ConstPtr &forward_msg)
 }
 void relo_relative_pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 {
-    Vector3d relative_t = Vector3d(pose_msg->pose.pose.position.x,
+    Vector3d relative_t = Vector3d(pose_msg->pose.pose.position.x,//平移
                                    pose_msg->pose.pose.position.y,
                                    pose_msg->pose.pose.position.z);
     Quaterniond relative_q;
-    relative_q.w() = pose_msg->pose.pose.orientation.w;
+    relative_q.w() = pose_msg->pose.pose.orientation.w;//旋转
     relative_q.x() = pose_msg->pose.pose.orientation.x;
     relative_q.y() = pose_msg->pose.pose.orientation.y;
     relative_q.z() = pose_msg->pose.pose.orientation.z;
     double relative_yaw = pose_msg->twist.twist.linear.x;
     int index = pose_msg->twist.twist.linear.y;
     //printf("receive index %d \n", index );
-    Eigen::Matrix<double, 8, 1 > loop_info;
+    Eigen::Matrix<double, 8, 1 > loop_info;//位姿加yaw角
     loop_info << relative_t.x(), relative_t.y(), relative_t.z(),
                  relative_q.w(), relative_q.x(), relative_q.y(), relative_q.z(),
                  relative_yaw;
@@ -198,7 +198,7 @@ void relo_relative_pose_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
 
 }
 
-void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
+void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)//视觉和ＩＭＵ共同的回调函数
 {
     //ROS_INFO("vio_callback!");
     Vector3d vio_t(pose_msg->pose.pose.position.x, pose_msg->pose.pose.position.y, pose_msg->pose.pose.position.z);
@@ -226,7 +226,7 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
         cameraposevisual.publish_by(pub_camera_pose_visual, pose_msg->header);
     }
 
-    odometry_buf.push(vio_t_cam);
+    odometry_buf.push(vio_t_cam);//把里面的数据赋值给odometry_buf
     if (odometry_buf.size() > 10)
     {
         odometry_buf.pop();
@@ -278,7 +278,7 @@ void vio_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
     }
 }
 
-void extrinsic_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
+void extrinsic_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)//把外参相应的值赋值给对应的变量
 {
     m_process.lock();
     tic = Vector3d(pose_msg->pose.pose.position.x,
@@ -287,7 +287,7 @@ void extrinsic_callback(const nav_msgs::Odometry::ConstPtr &pose_msg)
     qic = Quaterniond(pose_msg->pose.pose.orientation.w,
                       pose_msg->pose.pose.orientation.x,
                       pose_msg->pose.pose.orientation.y,
-                      pose_msg->pose.pose.orientation.z).toRotationMatrix();
+                      pose_msg->pose.pose.orientation.z).toRotationMatrix();//将四元数转换成旋转矩阵
     m_process.unlock();
 }
 
@@ -303,9 +303,9 @@ void process()
 
         // find out the messages with same time stamp
         m_buf.lock();
-        if(!image_buf.empty() && !point_buf.empty() && !pose_buf.empty())
+        if(!image_buf.empty() && !point_buf.empty() && !pose_buf.empty())//图像、点、位姿的缓冲都不为空才可以执行下面的函数
         {
-            if (image_buf.front()->header.stamp.toSec() > pose_buf.front()->header.stamp.toSec())
+            if (image_buf.front()->header.stamp.toSec() > pose_buf.front()->header.stamp.toSec())//图像时间开始不能大于位姿和点开始时间
             {
                 pose_buf.pop();
                 printf("throw pose at beginning\n");
@@ -315,21 +315,21 @@ void process()
                 point_buf.pop();
                 printf("throw point at beginning\n");
             }
-            else if (image_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec() 
-                && point_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec())
+            else if (image_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec() //图像结束时间要大于位姿和点结束时间
+                && point_buf.back()->header.stamp.toSec() >= pose_buf.front()->header.stamp.toSec())//以上的判断就是为了将图像和ＩＭＵ进行对齐
             {
-                pose_msg = pose_buf.front();
+                pose_msg = pose_buf.front();//对齐之后就将位姿缓存到相应的变量
                 pose_buf.pop();
                 while (!pose_buf.empty())
                     pose_buf.pop();
                 while (image_buf.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
                     image_buf.pop();
-                image_msg = image_buf.front();
+                image_msg = image_buf.front();//对齐之后就将图像缓存到相应的变量
                 image_buf.pop();
 
                 while (point_buf.front()->header.stamp.toSec() < pose_msg->header.stamp.toSec())
                     point_buf.pop();
-                point_msg = point_buf.front();
+                point_msg = point_buf.front();////对齐之后就将点信息缓存到相应的变量
                 point_buf.pop();
             }
         }
@@ -451,7 +451,7 @@ void command()
     }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char **argv)//带有node的文件都是从main函数开始看
 {
     ros::init(argc, argv, "pose_graph");
     ros::NodeHandle n("~");
@@ -464,21 +464,21 @@ int main(int argc, char **argv)
     n.getParam("skip_dis", SKIP_DIS);
     std::string config_file;
     n.getParam("config_file", config_file);
-    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);//打开配置文件，读配置文件中的参数
     if(!fsSettings.isOpened())
     {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
     }
 
-    double camera_visual_size = fsSettings["visualize_camera_size"];
+    double camera_visual_size = fsSettings["visualize_camera_size"];//把相应配置文件中的参数赋值给对应的变量
     cameraposevisual.setScale(camera_visual_size);
-    cameraposevisual.setLineWidth(camera_visual_size / 10.0);
+    cameraposevisual.setLineWidth(camera_visual_size / 10.0);//为什么要这样设置？
 
 
     LOOP_CLOSURE = fsSettings["loop_closure"];
     std::string IMAGE_TOPIC;
     int LOAD_PREVIOUS_POSE_GRAPH;
-    if (LOOP_CLOSURE)
+    if (LOOP_CLOSURE)//闭环优化
     {
         ROW = fsSettings["image_height"];
         COL = fsSettings["image_width"];
@@ -489,7 +489,7 @@ int main(int argc, char **argv)
 
         BRIEF_PATTERN_FILE = pkg_path + "/../support_files/brief_pattern.yml";
         cout << "BRIEF_PATTERN_FILE" << BRIEF_PATTERN_FILE << endl;
-        m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file.c_str());
+        m_camera = camodocal::CameraFactory::instance()->generateCameraFromYamlFile(config_file.c_str());//配置文件的格式转换
 
         fsSettings["image_topic"] >> IMAGE_TOPIC;        
         fsSettings["pose_graph_save_path"] >> POSE_GRAPH_SAVE_PATH;
@@ -511,7 +511,7 @@ int main(int argc, char **argv)
         if (LOAD_PREVIOUS_POSE_GRAPH)
         {
             printf("load pose graph\n");
-            m_process.lock();
+            m_process.lock();//处理的过程中不能被干扰
             posegraph.loadPoseGraph();
             m_process.unlock();
             printf("load pose graph finish\n");

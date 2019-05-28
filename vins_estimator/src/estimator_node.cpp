@@ -39,7 +39,7 @@ bool init_feature = 0;
 bool init_imu = 1;
 double last_imu_t = 0;
 
-void predict(const sensor_msgs::ImuConstPtr &imu_msg)
+void predict(const sensor_msgs::ImuConstPtr &imu_msg)//含有imu的数据信息，可以看成是imu的数据源
 {
     double t = imu_msg->header.stamp.toSec();
     if (init_imu)
@@ -51,24 +51,24 @@ void predict(const sensor_msgs::ImuConstPtr &imu_msg)
     double dt = t - latest_time;
     latest_time = t;
 
-    double dx = imu_msg->linear_acceleration.x;
+    double dx = imu_msg->linear_acceleration.x;//加速度的小量
     double dy = imu_msg->linear_acceleration.y;
     double dz = imu_msg->linear_acceleration.z;
     Eigen::Vector3d linear_acceleration{dx, dy, dz};
 
-    double rx = imu_msg->angular_velocity.x;
+    double rx = imu_msg->angular_velocity.x;//角速度的小量
     double ry = imu_msg->angular_velocity.y;
     double rz = imu_msg->angular_velocity.z;
     Eigen::Vector3d angular_velocity{rx, ry, rz};
 
-    Eigen::Vector3d un_acc_0 = tmp_Q * (acc_0 - tmp_Ba) - estimator.g;
+    Eigen::Vector3d un_acc_0 = tmp_Q * (acc_0 - tmp_Ba) - estimator.g;//去除重力后的估计量
 
     Eigen::Vector3d un_gyr = 0.5 * (gyr_0 + angular_velocity) - tmp_Bg;
     tmp_Q = tmp_Q * Utility::deltaQ(un_gyr * dt);
 
     Eigen::Vector3d un_acc_1 = tmp_Q * (linear_acceleration - tmp_Ba) - estimator.g;
 
-    Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);
+    Eigen::Vector3d un_acc = 0.5 * (un_acc_0 + un_acc_1);//中值法求解
 
     tmp_P = tmp_P + dt * tmp_V + 0.5 * dt * dt * un_acc;
     tmp_V = tmp_V + dt * un_acc;
@@ -96,29 +96,29 @@ void update()
 }
 
 std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>>
-getMeasurements()
+getMeasurements()//接受数据完成才可以提取数据，提取数据完成才可以继续接收数据
 {
     std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
 
     while (true)
     {
         if (imu_buf.empty() || feature_buf.empty())
-            return measurements;
-
-        if (!(imu_buf.back()->header.stamp.toSec() > feature_buf.front()->header.stamp.toSec() + estimator.td))
+            return measurements;//判断是否为空
+//////////////////////////////判断ＩＭＵ数据和图像数据是否对齐，下面是对齐的两个条件
+        if (!(imu_buf.back()->header.stamp.toSec() > feature_buf.front()->header.stamp.toSec() + estimator.td))//ＩＭＵ最后的数据时间大于图像数据开始的数据时间
         {
             //ROS_WARN("wait for imu, only should happen at the beginning");
             sum_of_wait++;
             return measurements;
         }
-
-        if (!(imu_buf.front()->header.stamp.toSec() < feature_buf.front()->header.stamp.toSec() + estimator.td))
+//////////////////////////////使用的是队列数据结构
+        if (!(imu_buf.front()->header.stamp.toSec() < feature_buf.front()->header.stamp.toSec() + estimator.td))//ＩＭＵ数据开始的时间小于图像数据开始的时间
         {
             ROS_WARN("throw img, only should happen at the beginning");
             feature_buf.pop();
             continue;
         }
-        sensor_msgs::PointCloudConstPtr img_msg = feature_buf.front();
+        sensor_msgs::PointCloudConstPtr img_msg = feature_buf.front();//数据从队列中按照对齐的方式取出来
         feature_buf.pop();
 
         std::vector<sensor_msgs::ImuConstPtr> IMUs;
@@ -135,9 +135,9 @@ getMeasurements()
     return measurements;
 }
 
-void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
+void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)//将ＩＭＵ的数据保存在imu_buf中
 {
-    if (imu_msg->header.stamp.toSec() <= last_imu_t)
+    if (imu_msg->header.stamp.toSec() <= last_imu_t)//判断接受的imu信息是否可靠
     {
         ROS_WARN("imu message in disorder!");
         return;
@@ -145,19 +145,19 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
     last_imu_t = imu_msg->header.stamp.toSec();
 
     m_buf.lock();
-    imu_buf.push(imu_msg);
+    imu_buf.push(imu_msg);//存放数据时不能被干扰
     m_buf.unlock();
-    con.notify_one();
+    con.notify_one();//唤醒作用于process中的获取观测值的函数
 
     last_imu_t = imu_msg->header.stamp.toSec();
 
     {
         std::lock_guard<std::mutex> lg(m_state);
-        predict(imu_msg);
+        predict(imu_msg);//预测未考虑观测噪声的Ｐ、Ｖ、Ｑ;属于预测值
         std_msgs::Header header = imu_msg->header;
         header.frame_id = "world";
         if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
-            pubLatestOdometry(tmp_P, tmp_Q, tmp_V, header);
+            pubLatestOdometry(tmp_P, tmp_Q, tmp_V, header);//发布上一帧里程计信息
     }
 }
 
@@ -171,7 +171,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
         return;
     }
     m_buf.lock();
-    feature_buf.push(feature_msg);
+    feature_buf.push(feature_msg);//保存特征数据
     m_buf.unlock();
     con.notify_one();
 }
@@ -206,12 +206,12 @@ void relocalization_callback(const sensor_msgs::PointCloudConstPtr &points_msg)
 }
 
 // thread: visual-inertial odometry
-void process()
+void process()//处理观测值数据的线程
 {
     while (true)
     {
-        std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;
-        std::unique_lock<std::mutex> lk(m_buf);
+        std::vector<std::pair<std::vector<sensor_msgs::ImuConstPtr>, sensor_msgs::PointCloudConstPtr>> measurements;//定义了ＩＭＵ数据和一帧图像数据的组合容器
+        std::unique_lock<std::mutex> lk(m_buf);//使用互斥锁和条件等待的功能
         con.wait(lk, [&]
                  {
             return (measurements = getMeasurements()).size() != 0;
@@ -220,7 +220,7 @@ void process()
         m_estimator.lock();
         for (auto &measurement : measurements)
         {
-            auto img_msg = measurement.second;
+            auto img_msg = measurement.second;//第二个是图像信息
             double dx = 0, dy = 0, dz = 0, rx = 0, ry = 0, rz = 0;
             for (auto &imu_msg : measurement.first)
             {
@@ -230,7 +230,7 @@ void process()
                 { 
                     if (current_time < 0)
                         current_time = t;
-                    double dt = t - current_time;
+                    double dt = t - current_time;//ｃｕｒｒｅｎｔ_ｔｉｍｅ代表上一时刻的时间
                     ROS_ASSERT(dt >= 0);
                     current_time = t;
                     dx = imu_msg->linear_acceleration.x;
@@ -239,7 +239,7 @@ void process()
                     rx = imu_msg->angular_velocity.x;
                     ry = imu_msg->angular_velocity.y;
                     rz = imu_msg->angular_velocity.z;
-                    estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
+                    estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));//将dt、线加速度和角加速度计算出来送给优化器
                     //printf("imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
 
                 }
@@ -281,10 +281,10 @@ void process()
                     u_v_id.y() = relo_msg->points[i].y;
                     u_v_id.z() = relo_msg->points[i].z;
                     match_points.push_back(u_v_id);
-                }
+                }//记录旋转和平移
                 Vector3d relo_t(relo_msg->channels[0].values[0], relo_msg->channels[0].values[1], relo_msg->channels[0].values[2]);
                 Quaterniond relo_q(relo_msg->channels[0].values[3], relo_msg->channels[0].values[4], relo_msg->channels[0].values[5], relo_msg->channels[0].values[6]);
-                Matrix3d relo_r = relo_q.toRotationMatrix();
+                Matrix3d relo_r = relo_q.toRotationMatrix();//将四元数转化成矩阵的形式
                 int frame_index;
                 frame_index = relo_msg->channels[0].values[7];
                 estimator.setReloFrame(frame_stamp, frame_index, match_points, relo_t, relo_r);
@@ -313,7 +313,7 @@ void process()
             }
             estimator.processImage(image, img_msg->header);
 
-            double whole_t = t_s.toc();
+            double whole_t = t_s.toc();//整个过程的时间０
             printStatistics(estimator, whole_t);
             std_msgs::Header header = img_msg->header;
             header.frame_id = "world";

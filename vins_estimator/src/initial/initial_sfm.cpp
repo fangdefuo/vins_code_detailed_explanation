@@ -34,15 +34,15 @@ bool GlobalSFM::solveFrameByPnP(Matrix3d &R_initial, Vector3d &P_initial, int i,
 			if (sfm_f[j].observation[k].first == i)
 			{
 				Vector2d img_pts = sfm_f[j].observation[k].second;
-				cv::Point2f pts_2(img_pts(0), img_pts(1));
+				cv::Point2f pts_2(img_pts(0), img_pts(1));//观测的２Ｄ特征点
 				pts_2_vector.push_back(pts_2);
-				cv::Point3f pts_3(sfm_f[j].position[0], sfm_f[j].position[1], sfm_f[j].position[2]);
-				pts_3_vector.push_back(pts_3);
+				cv::Point3f pts_3(sfm_f[j].position[0], sfm_f[j].position[1], sfm_f[j].position[2]);//是不是归一化平面上的点？
+				pts_3_vector.push_back(pts_3);//地图中的三维点
 				break;
 			}
 		}
 	}
-	if (int(pts_2_vector.size()) < 15)
+	if (int(pts_2_vector.size()) < 15)//追踪的特征点较少
 	{
 		printf("unstable features tracking, please slowly move you device!\n");
 		if (int(pts_2_vector.size()) < 10)
@@ -85,7 +85,7 @@ void GlobalSFM::triangulateTwoFrames(int frame0, Eigen::Matrix<double, 3, 4> &Po
 		Vector2d point1;
 		for (int k = 0; k < (int)sfm_f[j].observation.size(); k++)
 		{
-			if (sfm_f[j].observation[k].first == frame0)
+			if (sfm_f[j].observation[k].first == frame0)//２维点
 			{
 				point0 = sfm_f[j].observation[k].second;
 				has_0 = true;
@@ -153,7 +153,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 	Pose[frame_num - 1].block<3, 1>(0, 3) = c_Translation[frame_num - 1];
 
 
-	//1: trangulate between l ----- frame_num - 1
+	//1: trangulate between l ----- frame_num - 1//三角化
 	//2: solve pnp l + 1; trangulate l + 1 ------- frame_num - 1; 
 	for (int i = l; i < frame_num - 1 ; i++)
 	{
@@ -171,7 +171,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 			Pose[i].block<3, 1>(0, 3) = c_Translation[i];
 		}
 
-		// triangulate point based on the solve pnp result
+		// triangulate point based on the solve pnp result先三角化，然后利用ＰＮＰ求解位姿
 		triangulateTwoFrames(i, Pose[i], frame_num - 1, Pose[frame_num - 1], sfm_f);
 	}
 	//3: triangulate l-----l+1 l+2 ... frame_num -2
@@ -179,7 +179,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 		triangulateTwoFrames(l, Pose[l], i, Pose[i], sfm_f);
 	//4: solve pnp l-1; triangulate l-1 ----- l
 	//             l-2              l-2 ----- l
-	for (int i = l - 1; i >= 0; i--)
+	for (int i = l - 1; i >= 0; i--)//三角化１到l－１之间的帧
 	{
 		//solve pnp
 		Matrix3d R_initial = c_Rotation[i + 1];
@@ -230,7 +230,7 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 	}
 */
 	//full BA
-	ceres::Problem problem;
+	ceres::Problem problem;//最小二乘用ceres求解
 	ceres::LocalParameterization* local_parameterization = new ceres::QuaternionParameterization();
 	//cout << " begin full BA " << endl;
 	for (int i = 0; i < frame_num; i++)
@@ -262,8 +262,8 @@ bool GlobalSFM::construct(int frame_num, Quaterniond* q, Vector3d* T, int l,
 		for (int j = 0; j < int(sfm_f[i].observation.size()); j++)
 		{
 			int l = sfm_f[i].observation[j].first;
-			ceres::CostFunction* cost_function = ReprojectionError3D::Create(
-												sfm_f[i].observation[j].second.x(),
+			ceres::CostFunction* cost_function = ReprojectionError3D::Create(//定义重投影误差/损失函数
+												sfm_f[i].observation[j].second.x(),//传入的是观测值
 												sfm_f[i].observation[j].second.y());
 
     		problem.AddResidualBlock(cost_function, NULL, c_rotation[l], c_translation[l], 

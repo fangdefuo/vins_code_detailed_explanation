@@ -29,7 +29,7 @@ public:
   DVision::BRIEF m_brief;
 };
 
-class KeyFrame
+class KeyFrame//要看清关键帧中包含那些函数和变量
 {
 public:
 	KeyFrame(double _time_stamp, int _index, Vector3d &_vio_T_w_i, Matrix3d &_vio_R_w_i, cv::Mat &_image,
@@ -42,7 +42,7 @@ public:
 	void computeWindowBRIEFPoint();
 	void computeBRIEFPoint();
 	//void extractBrief();
-	int HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b);
+	int HammingDis(const BRIEF::bitset &a, const BRIEF::bitset &b);//相同为０，不同为１
 	bool searchInAera(const BRIEF::bitset window_descriptor,
 	                  const std::vector<BRIEF::bitset> &descriptors_old,
 	                  const std::vector<cv::KeyPoint> &keypoints_old,

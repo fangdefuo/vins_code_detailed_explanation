@@ -57,7 +57,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
     }
     
     cur_kf->getVioPose(vio_P_cur, vio_R_cur);
-    vio_P_cur = w_r_vio * vio_P_cur + w_t_vio;
+    vio_P_cur = w_r_vio * vio_P_cur + w_t_vio;//乘的是不是经过优化后的旋转矩阵
     vio_R_cur = w_r_vio *  vio_R_cur;
     cur_kf->updateVioPose(vio_P_cur, vio_R_cur);
     cur_kf->index = global_index;
@@ -185,7 +185,7 @@ void PoseGraph::addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop)
     }
     if (SHOW_L_EDGE)
     {
-        if (cur_kf->has_loop)
+        if (cur_kf->has_loop)//判断是否进行循环
         {
             //printf("has loop \n");
             KeyFrame* connected_KF = getKeyFrame(cur_kf->loop_index);
@@ -624,7 +624,7 @@ void PoseGraph::updatePath()
             path[(*it)->sequence].poses.push_back(pose_stamped);
             path[(*it)->sequence].header = pose_stamped.header;
         }
-
+////////////////////////////////////将位姿写入文件//////////////////////看看其中的格式///////////////////////
         if (SAVE_LOOP_PATH)
         {
             ofstream loop_path_file(VINS_RESULT_PATH, ios::app);
@@ -642,7 +642,7 @@ void PoseGraph::updatePath()
                   << endl;
             loop_path_file.close();
         }
-        //draw local connection
+ ////////////////////////////////////////////////////////       //draw local connection/////////////////////
         if (SHOW_S_EDGE)
         {
             list<KeyFrame*>::reverse_iterator rit = keyframelist.rbegin();
@@ -694,7 +694,7 @@ void PoseGraph::updatePath()
 }
 
 
-void PoseGraph::savePoseGraph()
+void PoseGraph::savePoseGraph()//位姿图里记录的都是关键帧的位姿，并不是所有帧的位姿
 {
     m_keyframelist.lock();
     TicToc tmp_t;
